@@ -5,7 +5,7 @@ from xmlfunctions import XMLParser
 
 ##set up some global variables
 
-#set up a db connection with sqlalchemy
+#our database details
 engine='mysql://root:Shirith46!@localhost/OCW'
 
 #generate models for the given db
@@ -21,6 +21,7 @@ Entry = Model.classes.ocwentries
 #make sure that the database is empty before we start
 database.empty_db()
 
+#@TODO encapsulate this stuff in the xmlparser class
 #the path to our xml
 xml_path = '/home/fraser/Code/ocw/xml.xml'
 
