@@ -4,7 +4,7 @@ class XMLParser():
     '''
     a class to provide methods for, and hold the results of, our xml searching
     '''
-
+    #@TODO Populate these by hand and finish entry namedtuple
     regions = []
     categories = []
     #namedtuple to hold our entry objects
@@ -21,6 +21,7 @@ class XMLParser():
         Takes an element and recursively searches it for a given tag, then returns a list of all the
         elements which have that tag, as an item in the instance's found_elements dict. The key will be the name of the tag.
         '''
+        #if there is no key for this tag in found elements, add it
         if tag not in self.found_elements.keys():
             self.found_elements[tag]=[]
 
@@ -51,12 +52,12 @@ class XMLParser():
 
     def get__relationships(self):
         '''
-        populates self.entries_regions and self.entries_categories, which are each a list of namedtuples
+        populate self.entries with entry namedtuples, along with their relationships if applicable
         '''
         pass
 
     def get_entries(self):
         '''
-        populate self.entries with the body of the entries:
+        populate self.entries with the body of the entries, adding entries which don't exist
         '''
         pass
