@@ -2,6 +2,7 @@ import xml.etree.cElementTree as ET
 
 from dbfunctions import DBManager
 from xmlfunctions import XMLParser
+import pdb
 
 ##set up some global variables
 
@@ -29,6 +30,6 @@ xml_path = '/home/fraser/Code/ocw/xml.xml'
 tree = ET.parse(xml_path)
 root = tree.getroot()
 parser = XMLParser(root)
-parser.get_all(tree=root, tag='e')
-print len(parser.found_elements['e'])
+pdb.set_trace()
+
 
