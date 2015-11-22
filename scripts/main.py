@@ -77,6 +77,7 @@ for contrib in parser.contributors:
                       content = contrib.text,
                       legacy_url_component = slugify(convert_to_unicode(contrib.fullname.lower())),
                       is_contributor = 1,
+                      is_crossref = 0
                       )
     session.add(new_contrib)
 session.commit()
