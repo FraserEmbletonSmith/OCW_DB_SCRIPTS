@@ -60,7 +60,7 @@ for entry in parser.entries:
                       legacy_url_component = entry.slug,
                       is_contributor = 0,
                       audio_file = ", ".join(entry.audio),
-                      contributors =entry.contributors,
+                      contributors = entry.contributors,
                       entries = entry.xrefs,
                       is_crossref = int(entry.crossref),
                       )

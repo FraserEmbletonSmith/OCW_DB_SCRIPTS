@@ -5,4 +5,5 @@ xml.xml
 csv.csv
 *.xml
 *.csv
+*.sql
 

@@ -56,7 +56,7 @@ class Entry(Base):
     __tablename__='ocwentries'
 
     id = Column(Integer, primary_key=True, nullable=False)
-    legacy_url_component = Column(VARCHAR(8))
+    legacy_url_component = Column(VARCHAR(50))
     title = Column(VARCHAR(50, collation='utf8_bin'))
     subtitle = Column(VARCHAR(50))
     content = Column(LONGTEXT(collation='utf8_bin'))

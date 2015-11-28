@@ -6,11 +6,12 @@ from csvparse import get_article_names
 from csvparse import strip_everything
 from slugify import slugify
 from xml.etree.cElementTree import ParseError
+from titlecase import titlecase
 from settings import *
 
 
 #namedtuple to hold our entry and contributor objects
-Entry = namedtuple('entry', ['text', 'region', 'category', 'title', 'id', 'xrefs', 'audio', 'slug', 'contributors', 'references', 'crossref'])
+Entry = namedtuple('entry', ['text', 'region', 'category', 'title', 'id', 'xrefs', 'audio', 'slug', 'contributors', 'references', 'crossref', 'abbrev'])
 Contributor = namedtuple('contributor', ['forename', 'surname', 'fullname', 'initial', 'text'])
 class XMLParser():
     '''
@@ -40,16 +41,14 @@ class XMLParser():
         # their contributors as lists of slugified names, and their audio file as a filename
         self.get_entries()
 
-
         #slugify the entries' titles
         self.populate_slugs()
 
         #parse the text in the xml entries to html, including links and formatting, as well as populating the list of
         #xrefs for each entry
         self.parse_xml()
-
         self.unicodify_constants()
-
+        pdb.set_trace()
 
     def get_all(self, tree, tag):
         '''
@@ -71,7 +70,7 @@ class XMLParser():
                 if name in self.regions:
                     item_ones = div.find('p').find('list').find('list1')
                     for item in item_ones:
-                        title = item.find('p').find('xrefGrp').find('xref').text
+                        title = item.find('p').find('xrefGrp').find('xref').text.rstrip('.')
                         id = item.find('p').find('xrefGrp').find('xref').get('ref')
                         found = False
                         for entry in self.entries:
@@ -81,14 +80,14 @@ class XMLParser():
                                 self.entries.append(new_entry)
                                 found = True
                         if not found:
-                            self.entries.append(Entry(text=None, region=name, category=None, title=title, id = id, xrefs=None, slug=None, audio=None, contributors=None, references = None, crossref=None))
+                            self.entries.append(Entry(text=None, region=name, category=None, title=title, id = id, xrefs=None, slug=None, audio=None, contributors=None, references = None, crossref=None, abbrev=None))
 
 
 
                 elif name in self.categories:
                     item_ones = div.find('p').find('list').find('list1')
                     for item in item_ones:
-                        title = item.find('p').find('xrefGrp').find('xref').text
+                        title = item.find('p').find('xrefGrp').find('xref').text.rstrip('.')
                         id = item.find('p').find('xrefGrp').find('xref').get('ref')
                         found = False
                         for entry in self.entries:
@@ -98,7 +97,7 @@ class XMLParser():
                                 self.entries.append(new_entry)
                                 found = True
                         if not found:
-                            self.entries.append(Entry(text=None, region=None, category=name, title=title, id=id, xrefs=None, slug=None, audio=None, contributors=None, references=None, crossref=None))
+                            self.entries.append(Entry(text=None, region=None, category=name, title=title, id=id, xrefs=None, slug=None, audio=None, contributors=None, references=None, crossref=None, abbrev=None))
                 else:
                     self.found_regions.append(name)
 
@@ -118,8 +117,10 @@ class XMLParser():
             references = self.get_reference_list(e.findall(".//*[@role='bibliography']"))
             audio = self.get_audio(e)
             id = e.get('id')
-            title = self.get_node_text(e.find('headwordGroup').find('headword'))
-            crossref = e.find('headwordGroup').find('headword').get("abbrev") == 'y'
+            title = self.get_node_text(e.find('headwordGroup').find('headword')).rstrip('.')
+            crossref = e.find('section').get('role')=='crossRef'
+            abbrev = e.find('headwordGroup').find('headword').get("abbrev") == 'y'
+            crossref = crossref
             text = self.get_text(e)
             xrefs = None
             found = False
@@ -130,7 +131,7 @@ class XMLParser():
                     found = True
                     break
             if not found:
-                    entries.append(Entry(title=title, text=text, xrefs=xrefs, region=None, category=None, id=id, slug=None, audio=audio, references=references, contributors=contributors, crossref=crossref))
+                    entries.append(Entry(title=title, text=text, xrefs=xrefs, region=None, category=None, id=id, slug=None, audio=audio, references=references, contributors=contributors, crossref=crossref, abbrev=abbrev))
         self.entries = entries
 
     def tags(self, elem):
@@ -210,6 +211,7 @@ class XMLParser():
             xrefs = self.get_xrefs(xmltext)
             xmltext = self.translate_entry_links(xmltext)
             xmltext = self.translate_media_links(xmltext)
+            xmltext = self.replace_sc(xmltext)
             xmltext = self.insert_tags(xmltext)
             xmltext = self.insert_titles(xmltext)
 
@@ -223,7 +225,7 @@ class XMLParser():
         adds html tags in the place of the xml tags to the text of the xml, meaning they are not deleted by get_node_text()
         Used for tags that we want to keep
         '''
-        tags_to_keep = ['i', 'b', 'sc', 'p']
+        tags_to_keep = ['i', 'b', 'p']
         for tag in tags_to_keep:
             elems = get_all(node, tag)
             for elem in elems:
@@ -271,10 +273,14 @@ class XMLParser():
         grps = get_all(node, 'xrefGrp')
         xrefs = []
         for grp in grps:
-                ref = grp.find('xref')
+            refs = get_all(grp, 'xref')
+            for ref in refs:
                 id = ref.get('ref')
                 if id is not None:
-                    text = convert_to_unicode(self.get_node_text(ref))
+                    if len(ref)>0:
+                        text = convert_to_unicode(ref[0].text)
+                    else:
+                        text = convert_to_unicode(ref.text)
                     link = self.convert_link(id)
                     if text is not None and link is not None:
                         #before converting the link to html, we convert the id to be of the form "/ocw/{{slug}}"
@@ -287,34 +293,34 @@ class XMLParser():
             grps = get_all(xmltext, 'xrefGrp')
 
             for grp in grps:
-                ref = grp.find('xref')
-                #xrefs contain the actual link
-                if ref:
-                    #xrefgrps also contain text before and after the xref sometimes; this is captured using the text and
-                    #tail of the xrefgrp, and the actual link text is the text of the ref
+                refs = get_all(grp, 'xref')
+                #xrefs contain the actual link. Sometimes there are multiple xrefs within a single xrefgrp.
+                if refs:
                     pretext = convert_to_unicode(grp.text)
+                    links = ""
+                    for counter, ref in enumerate(refs):
 
-                    if len(list(ref))>1:
-                        #sometimes refs contain other elements, like <sc> of <i> - we want to preserve these
-                        innertext = convert_to_unicode(self.get_node_xml(ref[0]))
-                    else:
-                        innertext = convert_to_unicode(self.get_node_text(ref))
-                    posttext = convert_to_unicode(grp.tail)
+                        if len(list(ref))>0:
+                            #sometimes refs contain other elements, like <sc> or <i> - we want to preserve these
+                            refinnertext = convert_to_unicode(ref[0].text)
+                        else:
+                            refinnertext = convert_to_unicode(ref.text)
+                        if counter != len(refs) - 1:
+                            posttext = convert_to_unicode(ref.tail)
+                        else:
+                            posttext = convert_to_unicode(grp.tail)
 
-                    #this is the id of the article being linked to
-                    id = ref.get('ref')
+                        #this is the id of the article being linked to
+                        id = ref.get('ref')
 
-                    #before converting the link to html, we convert the id to be of the form "/ocw/{{slug}}"
-                    id = self.convert_link(id)
+                        #before converting the link to html, we convert the id to be of the form "/ocw/{{slug}}"
+                        id = self.convert_link(id)
 
-                    #construct the html link elements and surrounding text
-                    link=u'{0}<a href="{1}">{2}</a>{3}'.format(pretext, id, innertext, posttext)
-
+                        #construct the html link elements and surrounding text
+                        links += u'<a href="{0}">{1}</a>{2}'.format(id, refinnertext, posttext)
                     #delete all of the attributes of the xrefgrp
                     grp.clear()
-
-                    #set the xrefgrp's text to the link text
-                    grp.text= link
+                    grp.text = pretext+links
             return xmltext
 
     def translate_media_links(self, node):
@@ -333,10 +339,28 @@ class XMLParser():
         '''
         entries = []
         for entry in self.entries:
-            title = convert_to_unicode(entry.title)
+            if entry.abbrev:
+                title = convert_to_unicode(entry.title).upper()
+            else:
+                title = titlecase(convert_to_unicode(entry.title))
             slug = slugify(title)
-            entries.append(entry._replace(slug=slug))
+            entries.append(entry._replace(slug=slug, title=title))
         self.entries = entries
+
+    def replace_sc(self, node):
+        sc_list = get_all(node, 'sc')
+        for sc in sc_list:
+            text = sc.text
+            if text:
+                span = self.convert_sc(text)
+                try:
+                    sc.text = span
+                except ValueError:
+                    pdb.set_trace()
+        return node
+
+    def convert_sc(self, text):
+        return '<span class="ocw-inline-term">'+text+'</span>'
 
     def convert_link(self, id):
         '''
