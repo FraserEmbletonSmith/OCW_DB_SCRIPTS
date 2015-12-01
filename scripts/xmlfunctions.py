@@ -447,6 +447,7 @@ class XMLParser():
         populates and returns a contributor namedtuple for the given node
         '''
         initial = node.find('span').text
+        node.remove(node.find('span'))
         nameGrp = node.find('nameGrp')
         text = "<p>"+self.get_node_xml(node)+"</p>"
         forename = nameGrp.get('foreNames')
