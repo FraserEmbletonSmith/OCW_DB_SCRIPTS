@@ -8,6 +8,7 @@ from slugify import slugify
 from xml.etree.cElementTree import ParseError
 from titlecase import titlecase
 from settings import *
+import string
 
 
 #namedtuple to hold our entry and contributor objects
@@ -48,7 +49,6 @@ class XMLParser():
         #xrefs for each entry
         self.parse_xml()
         self.unicodify_constants()
-        pdb.set_trace()
 
     def get_all(self, tree, tag):
         '''
@@ -62,7 +62,8 @@ class XMLParser():
         populate self.entries with entry namedtuples, along with their relationships if applicable
         '''
         self.get_all(self.tree,'div2')
-
+        region_entries = []
+        category_entries = []
         divs = self.found_elements['div2']
         try:
             for div in divs:
@@ -71,16 +72,17 @@ class XMLParser():
                     item_ones = div.find('p').find('list').find('list1')
                     for item in item_ones:
                         title = item.find('p').find('xrefGrp').find('xref').text.rstrip('.')
+                        title = title.rstrip(",")
                         id = item.find('p').find('xrefGrp').find('xref').get('ref')
-                        found = False
-                        for entry in self.entries:
-                            if entry.id == id:
-                                new_entry = entry._replace(region = name, title=title)
-                                self.entries.remove(entry)
-                                self.entries.append(new_entry)
-                                found = True
-                        if not found:
-                            self.entries.append(Entry(text=None, region=name, category=None, title=title, id = id, xrefs=None, slug=None, audio=None, contributors=None, references = None, crossref=None, abbrev=None))
+                        # found = False
+                        # for entry in self.entries:
+                        #     if entry.id == id:
+                        #         new_entry = entry._replace(region = name, title=title)
+                        #         self.entries.remove(entry)
+                        #         self.entries.append(new_entry)
+                        #         found = True
+                        # if not found:
+                        region_entries.append(Entry(text=None, region=name, category=None, title=title, id = id, xrefs=None, slug=None, audio=None, contributors=None, references = None, crossref=None, abbrev=None))
 
 
 
@@ -88,21 +90,55 @@ class XMLParser():
                     item_ones = div.find('p').find('list').find('list1')
                     for item in item_ones:
                         title = item.find('p').find('xrefGrp').find('xref').text.rstrip('.')
+                        title = title.rstrip(",")
                         id = item.find('p').find('xrefGrp').find('xref').get('ref')
-                        found = False
-                        for entry in self.entries:
-                            if entry.id == id:
-                                new_entry = entry._replace(category = name)
-                                self.entries.remove(entry)
-                                self.entries.append(new_entry)
-                                found = True
-                        if not found:
-                            self.entries.append(Entry(text=None, region=None, category=name, title=title, id=id, xrefs=None, slug=None, audio=None, contributors=None, references=None, crossref=None, abbrev=None))
+                        # found = False
+                        # for entry in self.entries:
+                        #     if entry.id == id:
+                        #         new_entry = entry._replace(category = name)
+                        #         self.entries.remove(entry)
+                        #         self.entries.append(new_entry)
+                        #         found = True
+                        # if not found:
+                        category_entries.append(Entry(text=None, region=None, category=name, title=title, id=id, xrefs=None, slug=None, audio=None, contributors=None, references=None, crossref=None, abbrev=None))
                 else:
                     self.found_regions.append(name)
 
+
+
         except AttributeError:
                 pass
+        entries = []
+        for c_entry in category_entries:
+            found = False
+            for r_entry in region_entries:
+                if c_entry.id ==r_entry.id:
+                    new_entry = c_entry._replace(region=r_entry.region, id=c_entry.id, category=c_entry.category)
+                    entries.append(new_entry)
+                    found = True
+            if found == False:
+                entries.append(c_entry)
+        for r_entry in region_entries:
+            found = False
+            for c_entry in category_entries:
+                if c_entry.id ==r_entry.id:
+                    new_entry = r_entry._replace(category=c_entry.category, id = r_entry.id, region=r_entry.region)
+                    entries.append(new_entry)
+                    found = True
+            if found == False:
+                entries.append(r_entry)
+        self.entries = self.deduplicate(entries)
+
+    def deduplicate(self, entries):
+        deduped_entries = []
+        for entry in entries:
+            if entry.id not in [e.id for e in deduped_entries]:
+                deduped_entries.append(entry)
+        return deduped_entries
+
+
+
+
 
     def get_entries(self):
         '''
@@ -117,20 +153,20 @@ class XMLParser():
             references = self.get_reference_list(e.findall(".//*[@role='bibliography']"))
             audio = self.get_audio(e)
             id = e.get('id')
-            title = self.get_node_text(e.find('headwordGroup').find('headword')).rstrip('.')
+            title = self.get_node_text(e.find('headwordGroup').find('headword')).rstrip('.').rstrip(",")
             crossref = e.find('section').get('role')=='crossRef'
             abbrev = e.find('headwordGroup').find('headword').get("abbrev") == 'y'
             crossref = crossref
             text = self.get_text(e)
             xrefs = None
             found = False
+            #putting title=title here seems to get rid of all duplicate entries by title for some reason
             for entry in self.entries:
                 if entry.id == id:
-                    new_entry = entry._replace(text=text, xrefs=xrefs, references=references, contributors=contributors, audio=audio, crossref=crossref)
+                    new_entry = entry._replace(title=title, text=text, xrefs=xrefs, references=references, contributors=contributors, audio=audio, crossref=crossref, id=id, abbrev=abbrev)
                     entries.append(new_entry)
                     found = True
-                    break
-            if not found:
+            if found==False:
                     entries.append(Entry(title=title, text=text, xrefs=xrefs, region=None, category=None, id=id, slug=None, audio=audio, references=references, contributors=contributors, crossref=crossref, abbrev=abbrev))
         self.entries = entries
 
@@ -219,6 +255,20 @@ class XMLParser():
             #elements as text, they are written in the place of the xml elements
             new_entries.append(entry._replace(text=self.get_node_text(xmltext), xrefs=xrefs))
         self.entries = new_entries
+        new_contributors = []
+        for con in self.contributors:
+            #read the text as an xml element
+            xmltext = ET.fromstring(con.text)
+            xmltext = self.translate_entry_links(xmltext)
+            xmltext = self.translate_media_links(xmltext)
+            xmltext = self.replace_sc(xmltext)
+            xmltext = self.insert_tags(xmltext)
+            xmltext = self.insert_titles(xmltext)
+
+            #we now write the entry's text as non-xml. Since our xml elements now contain their corresponding html
+            #elements as text, they are written in the place of the xml elements
+            new_contributors.append(con._replace(text=self.get_node_text(xmltext)))
+        self.contributors = new_contributors
 
     def insert_tags(self, node):
         '''
@@ -373,7 +423,7 @@ class XMLParser():
 
     def convert_contributor_link(self, name):
         slug = slugify(convert_to_unicode(name))
-        return '<a href=""'+ENTRY_URL_PREFIX+slug+'">'+convert_to_unicode(name)+"</a>"
+        return '<a href="'+ENTRY_URL_PREFIX+"/"+slug+'">'+convert_to_unicode(name)+'</a>'
 
     def convert_media_link(self, media):
         return '<img src=/ocw/images/"'+media+'">'
@@ -398,7 +448,7 @@ class XMLParser():
         '''
         initial = node.find('span').text
         nameGrp = node.find('nameGrp')
-        text = self.get_node_text(node)
+        text = "<p>"+self.get_node_xml(node)+"</p>"
         forename = nameGrp.get('foreNames')
         surname = nameGrp.get('mainName')
         fullname = forename+" "+surname
@@ -412,13 +462,19 @@ class XMLParser():
         '''
         contributors=[]
         for Node in node:
-            authors = Node.findall("textMatter")
+            authors = get_all(Node,"textMatter")
             for author in authors:
-                for name in author.findall('nameGrp'):
+                for name in get_all(author, 'nameGrp'):
                     contributors.append(self.get_node_text(name))
+        contributors = [self.remove_punctuation(c) for c in contributors]
         contributors = "; ".join([self.convert_contributor_link(con) for con in contributors])
 
         return contributors
+
+    def remove_punctuation(self, text):
+        exclude = set(string.punctuation)
+        s = ''.join(ch for ch in text if ch not in exclude)
+        return s
 
     def get_audio(self, node):
         '''
