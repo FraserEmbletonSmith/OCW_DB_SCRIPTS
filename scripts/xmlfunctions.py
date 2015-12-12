@@ -149,7 +149,6 @@ class XMLParser():
         entries = []
         for e in e:
             contributors = self.get_contributor_list(e.findall(".//*[@role='authors']"))
-
             references = self.get_reference_list(e.findall(".//*[@role='bibliography']"))
             audio = self.get_audio(e)
             id = e.get('id')
@@ -180,9 +179,11 @@ class XMLParser():
         '''
         retrieves an entry's text as xml
         '''
-        body = e.find('section').find('textMatter')
+        body = get_all(e, 'textMatter')
         figure =get_all(e, 'figure')
-        ps = get_all(body, 'p')
+        ps = []
+        for b in body:
+            ps.extend(get_all(b, 'p'))
         p_with_titles=[]
         try:
             for p in ps:
@@ -278,6 +279,7 @@ class XMLParser():
         tags_to_keep = ['i', 'b', 'p']
         for tag in tags_to_keep:
             elems = get_all(node, tag)
+            elems = filter(lambda x: x.getparent().tag!='title', elems)
             for elem in elems:
                 self.wrap_element(elem, tag)
         return node
@@ -289,7 +291,9 @@ class XMLParser():
         elems = get_all(node, 'title')
         for elem in elems:
             self.wrap_element(elem, 'title', retain=False, new_tag='h2')
+
         return node
+
 
 
     def wrap_element(self, element, tag, retain=True, new_tag=None):
@@ -378,6 +382,8 @@ class XMLParser():
         if media:
             for img in media:
                 id = img.get("sysId")
+                if id == "acref-9780198705383-graphic-011.gif":
+                    pdb.set_trace()
                 link = self.convert_media_link(id)
                 img.clear()
                 img.text = link
@@ -494,11 +500,15 @@ class XMLParser():
             if Node is not None:
                 bibitems = get_all(Node, 'bibItem')
                 for item in bibitems:
-                    author = item.get('author')
-                    book = item.get('title')
-                    if author and book:
-                        reference = author +", "+book
-                        references.append(reference)
+                    # author = item.get('author')
+                    # book = item.get('title')
+                    # if author and book:
+                    #     reference = author +", "+book
+
+                    reference = self.replace_sc(item)
+                    reference = self.insert_tags(reference)
+                    reference = self.get_node_text(reference)
+                    references.append(reference)
         return references
 
     def unicodify_constants(self):
@@ -517,7 +527,5 @@ def get_all(tree, tag):
     returns all of the elements with a given tag nested inside the give tree
     '''
     return tree.findall(".//"+tag)
-
-
 
 
