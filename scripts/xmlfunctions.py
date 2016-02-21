@@ -189,7 +189,7 @@ class XMLParser():
             for p in ps:
                 if p.getparent().tag=='title':
                     p_with_titles.append(p.getparent())
-                else:
+                elif p.getparent().tag != 'displayText' and p.getparent().tag != 'item1':
                     p_with_titles.append(p)
 
         except AttributeError:
@@ -249,8 +249,10 @@ class XMLParser():
             xmltext = self.translate_entry_links(xmltext)
             xmltext = self.translate_media_links(xmltext)
             xmltext = self.replace_sc(xmltext)
+            xmltext = self.replace_quotes(xmltext)
             xmltext = self.insert_tags(xmltext)
             xmltext = self.insert_titles(xmltext)
+
 
             #we now write the entry's text as non-xml. Since our xml elements now contain their corresponding html
             #elements as text, they are written in the place of the xml elements
@@ -354,16 +356,20 @@ class XMLParser():
                     links = ""
                     for counter, ref in enumerate(refs):
 
-                        if len(list(ref))>0:
-                            #sometimes refs contain other elements, like <sc> or <i> - we want to preserve these
-                            refinnertext = convert_to_unicode(ref[0].text)
+                        # if len(list(ref))>0:
+                        #     #sometimes refs contain other elements, like <sc> or <i> - we want to preserve these
+                        #     refinnertext = convert_to_unicode(ref[0].text)
+                        # else:
+                        #     refinnertext = convert_to_unicode(ref.text)
+                        # if counter != len(refs) - 1:
+                        #     posttext = convert_to_unicode(ref.tail+(grp.tail or ''))
+                        # else:
+                        #     posttext = convert_to_unicode(grp.tail)
+                        refinnertext = convert_to_unicode(ET.tostring(ref, with_tail=False, method="text", encoding="utf-8"))
+                        if counter != len(refs) -1:
+                            posttext = ref.tail or ''
                         else:
-                            refinnertext = convert_to_unicode(ref.text)
-                        if counter != len(refs) - 1:
-                            posttext = convert_to_unicode(ref.tail)
-                        else:
-                            posttext = convert_to_unicode(grp.tail)
-
+                            posttext = (ref.tail or '') + (grp.tail or '')
                         #this is the id of the article being linked to
                         id = ref.get('ref')
 
@@ -382,8 +388,6 @@ class XMLParser():
         if media:
             for img in media:
                 id = img.get("sysId")
-                if id == "acref-9780198705383-graphic-011.gif":
-                    pdb.set_trace()
                 link = self.convert_media_link(id)
                 img.clear()
                 img.text = link
@@ -402,6 +406,29 @@ class XMLParser():
             slug = slugify(title)
             entries.append(entry._replace(slug=slug, title=title))
         self.entries = entries
+
+    def replace_quotes(self, node):
+        quotes = get_all(node, 'displayText')
+        for q in quotes:
+            self.convert_quote(q)
+            # p = q.getparent()
+            # index = q.getparent().index(q)
+            # p.remove(q)
+            # p.insert(index, self.convert_quote(q))
+        return node
+
+    def convert_quote(self, node):
+        #returns the given node with a parent "p" node and a quote span
+        # p = ET.Element("p")
+        # p.text = '<span class="ocw-quotation">'
+        # p.append(node)
+        # p.tail = '</span>'
+        # return p
+        text = node.text or ''
+        tail = node.tail or ''
+        node.text = '<span class="ocw-quotation">' + text
+        node.tail = tail + '</span>'
+
 
     def replace_sc(self, node):
         sc_list = get_all(node, 'sc')
@@ -480,6 +507,7 @@ class XMLParser():
 
     def remove_punctuation(self, text):
         exclude = set(string.punctuation)
+        exclude.remove("-")
         s = ''.join(ch for ch in text if ch not in exclude)
         return s
 

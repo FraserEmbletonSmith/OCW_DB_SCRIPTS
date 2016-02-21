@@ -11,10 +11,10 @@ PASSWORD = "Shirith46!"
 HOST = "localhost"
 
 #path to xml file
-PATH_TO_XML = "/home/fraser/Code/ocw/xml.xml"
+PATH_TO_XML = "C:/Users/Fraser/code/ocw/xml.xml"
 
 #path to csv file - only needed if you want to run the compare to csv funtion
-PATH_TO_CSV = "/home/fraser/Code/ocw/csv.csv"
+PATH_TO_CSV = "C:/Users/Fraser/code/ocw/csv.csv"
 
 #this prefix would give entry urls of the from <a href="/ocw/detail/{{entry_slug}}>{{entryname}}</a>
 ENTRY_URL_PREFIX = "/ocw/detail"
