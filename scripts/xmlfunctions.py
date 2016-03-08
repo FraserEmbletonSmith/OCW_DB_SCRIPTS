@@ -9,6 +9,9 @@ from xml.etree.cElementTree import ParseError
 from titlecase import titlecase
 from settings import *
 import string
+from html import HTML
+
+
 
 
 #namedtuple to hold our entry and contributor objects
@@ -455,7 +458,7 @@ class XMLParser():
                 return "/ocw/detail/"+slug
 
     def convert_contributor_link(self, name):
-        slug = slugify(convert_to_unicode(name))
+        slug = slugify(convert_to_unicode(name.lower()))
         return '<a href="'+ENTRY_URL_PREFIX+"/"+slug+'">'+convert_to_unicode(name)+'</a>'
 
     def convert_media_link(self, media):
@@ -499,7 +502,7 @@ class XMLParser():
             authors = get_all(Node,"textMatter")
             for author in authors:
                 for name in get_all(author, 'nameGrp'):
-                    contributors.append(self.get_node_text(name))
+                    contributors.append(name.get('foreNames')+' '+name.get('mainName'))
         contributors = [self.remove_punctuation(c) for c in contributors]
         contributors = "; ".join([self.convert_contributor_link(con) for con in contributors])
 
@@ -542,6 +545,57 @@ class XMLParser():
     def unicodify_constants(self):
         self.regions = [convert_to_unicode(reg) for reg in self.regions]
         self.categories = [convert_to_unicode(cat) for cat in self.categories]
+
+    def populate_tables(self):
+        '''
+        iterates through self.entries and, if any tables are indicated in the body of the text, adds them in
+        by looking up their id in entry.table and replacing the xml indicator element with the html table. When a
+        table is inserted from the dictionary into the entry's body,
+        it is deleted from the tables dict. All remaining tables are then appended to the end of the entry's text.
+        '''
+        pass
+
+    def get_xml_tables(self, node):
+        '''
+        Takes an entry, and, if it has associated tables, returns a dict of {'id':xml tableGroup}
+        '''
+        tables = node.get_all('tableGroup')
+        if tables:
+            t_dict = [{t.get('id'): self.get_node_xml(t)} for t in tables]
+            return t_dict
+        return None
+
+    def create_table(self, tg):
+        '''
+        Given a tableGroup element returns html marked up table wrapped in a div
+        '''
+        
+
+        h = HTML.table()
+
+
+    def make_row(self, row, header=False):
+        '''
+        Given a table row marked up as xml, returns the equivalent row in html markup. Also adds header markup if header
+        is set to true (for the first row of the table)
+        '''
+        
+
+
+    def wrap_text(self,text, tag, props):
+        '''
+        wraps some plain text with the specified html tag
+        '''
+        if props is None:
+            opening_tag = '<'+tag+'>'
+        else:
+            opening_tag = '<'+tag+" ".join([k+"="+v for k, v in props])+">"
+        closing_tag = '</'+tag+'>'
+        return opening_tag+text+closing_tag
+
+
+
+
 
 
 def convert_to_unicode(s):
